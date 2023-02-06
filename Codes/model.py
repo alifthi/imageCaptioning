@@ -9,32 +9,32 @@ class Model():
         self.vocabSize = vocabSize
         self.latentDim = 256
     def buildModel(self):
-        vggInput = ksl.Input(shape = [256,256,3])
-        vgg = tf.keras.applications.vgg16.VGG16(include_top = False,
-                                                weights = None,
-                                                input_shape = [256,256,3])
-        for l in vgg.layers:
-            l.trainable = False
-        vgg.load_weights(r"C:\Users\Legion\Downloads\vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5")
-        vgg = vgg(vggInput)
-        y = ksl.Flatten()(vgg)
+        imageInputs = ksl.Input(shape = [256,256,3])
+        x = ksl.Conv2D(16,kernel_size = 3,strides = 2,activation = 'relu',padding = 'same')(imageInputs)
+        x = ksl.MaxPooling2D(2,padding = 'same')(x)
+        x = ksl.BatchNormalization()(x)   
+        
+        x = ksl.Conv2D(8,kernel_size = 3,strides = 2,activation = 'relu',padding = 'same')(x)
+        x = ksl.MaxPooling2D(2,padding = 'same')(x)
+        x = ksl.BatchNormalization()(x)
+
+        y = ksl.Flatten()(x)
         y = ksl.Dense(128,activation = 'relu')(y)
-        y = ksl.Dense(1000,activation = 'relu')(y)
-        y = ksl.Reshape([10,100])(y)
+        y = ksl.Dense(self.latentDim,activation = 'relu')(y)
         captionsInput = ksl.Input([10])
         x = ksl.Embedding(input_dim = self.vocabSize,
                             output_dim = self.embeddingDim,
                             mask_zero = True)(captionsInput)
-        x = ksl.concatenate([y,x],axis=-1)
-        x = ksl.Bidirectional(ksl.LSTM(self.latentDim,dropout = 0.2,recurrent_dropout = 0.25),merge_mode = 'sum')(x)        
-        x = ksl.Dense(self.vocabSize,activation = 'softmax')(x)          
-        net = tf.keras.Model(inputs = [vggInput,captionsInput],outputs = x)
+        x = ksl.GRU(self.latentDim,dropout = 0.2,recurrent_dropout = 0.25, return_sequences=True)(x,initial_state = y)        
+        x = ksl.TimeDistributed(ksl.Dropout(0.5))(x)
+        x = ksl.TimeDistributed(ksl.Dense(self.vocabSize, activation="softmax"))(x)      
+        net = tf.keras.Model(inputs = [imageInputs,captionsInput],outputs = x)
         return net
-    def trainModel(self,trainData):
-        self.Hist = self.net.fit(trainData[:-1],trainData[-1],epochs = 5,batch_size = 64)
+    def trainModel(self,trainData,validation):
+        self.Hist = self.net.fit(trainData[:-1],trainData[-1],epochs = 5,batch_size = 32,validation_data = [[validation[:-1]],validation[-1]])
     def compileModel(self):
-        opt = optim.SGD(lr=0.1)  # we can use lr schedual
-        self.net.compile(optimizer = opt,loss = 'sparse_categorical_crossentropy',metrics = ['accuracy'])
+        opt = optim.SGD(lr=0.1)  
+        self.net.compile(optimizer = opt,loss = tf.keras.losses.SparseCategoricalCrossentropy(),metrics = ['accuracy'])
         self.net.summary()
     def plotHistory(slef):
         pass
