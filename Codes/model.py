@@ -31,10 +31,17 @@ class Model():
         net = tf.keras.Model(inputs = [imageInputs,captionsInput],outputs = x)
         return net
     def trainModel(self,trainData,validation):
-        self.Hist = self.net.fit(trainData[:-1],trainData[-1],epochs = 5,batch_size = 32,validation_data = [[validation[:-1]],validation[-1]])
+        self.Hist = self.net.fit(trainData[:-1],trainData[-1],epochs = 150,batch_size = 64,validation_data = [[validation[:-1]],validation[-1]])
     def compileModel(self):
         opt = optim.SGD(lr=0.1)  
         self.net.compile(optimizer = opt,loss = tf.keras.losses.SparseCategoricalCrossentropy(),metrics = ['accuracy'])
         self.net.summary()
-    def plotHistory(slef):
-        pass
+    @staticmethod
+    def plotHistory(Hist):
+        from matplotlib import pyplot as plt
+        plt.plot(Hist.history['accuracy'])
+        plt.plot(Hist.history['val_accuracy'])
+        plt.title('model accuracy')
+        plt.plot(Hist.history['loss'])
+        plt.plot(Hist.history['val_loss'])
+        plt.title('model loss')
